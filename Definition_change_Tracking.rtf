@@ -1,0 +1,238 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2870
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\froman\fcharset0 Times-Roman;\f1\froman\fcharset0 Times-Italic;\f2\froman\fcharset0 Times-Bold;
+\f3\fmodern\fcharset0 Courier-Bold;\f4\fmodern\fcharset0 Courier;\f5\froman\fcharset0 TimesNewRomanPSMT;
+}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red108\green0\blue181;\red16\green19\blue24;
+\red4\green57\blue181;\red14\green110\blue109;\red91\green98\blue116;\red15\green112\blue1;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c50588\c0\c76078;\cssrgb\c7843\c9412\c12157;
+\cssrgb\c0\c31765\c76078;\cssrgb\c0\c50196\c50196;\cssrgb\c43137\c46275\c52941;\cssrgb\c0\c50196\c0;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww29200\viewh18460\viewkind0
+\deftab720
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\fs24 \cf0 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 A taxonomy version stops being 
+\f1\i a container of rows
+\f0\i0  and becomes 
+\f1\i a marker in time
+\f0\i0 . Nothing is copied. The question "what wording was in force for this run?" is answered by resolving as of a date, not by looking up a snapshot.\
+That needs three things: a change log that records only what actually changed, a release marker with effective dates, and \'97 the important one \'97 a record of the exact payload sent to the models.\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f2\b\fs28 \cf0 1. Change log, not snapshots\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 Leave the existing dimension as the current state. Add an append-only history table beside it that captures only changed rows:\
+\pard\pardeftab720\partightenfactor0
+\cf0 \
+sql\
+\pard\pardeftab720\partightenfactor0
+\cf3 \strokec3 CREATE\cf4 \strokec4  \cf3 \strokec3 TABLE\cf4 \strokec4  \cf5 \strokec5 validation\cf4 \strokec4 .skill_definition_history (\
+    history_id      \cf3 \strokec3 BIGINT\cf4 \strokec4  \cf3 \strokec3 IDENTITY\cf4 \strokec4  \cf3 \strokec3 PRIMARY KEY\cf4 \strokec4 ,\
+    skill_code      \cf3 \strokec3 VARCHAR\cf4 \strokec4 (\cf6 \strokec6 20\cf4 \strokec4 )  \cf3 \strokec3 NOT NULL\cf4 \strokec4  \cf3 \strokec3 REFERENCES\cf4 \strokec4  validation.skill(skill_code),\
+    valid_from      \cf3 \strokec3 DATETIME2\cf4 \strokec4 (\cf6 \strokec6 0\cf4 \strokec4 ) \cf3 \strokec3 NOT NULL\cf4 \strokec4 ,\
+    valid_to        \cf3 \strokec3 DATETIME2\cf4 \strokec4 (\cf6 \strokec6 0\cf4 \strokec4 ) \cf3 \strokec3 NULL\cf4 \strokec4 ,          \cf7 \strokec7 -- NULL = currently in force\cf4 \strokec4 \
+    definition_text \cf3 \strokec3 NVARCHAR\cf4 \strokec4 (MAX) \cf3 \strokec3 NOT NULL\cf4 \strokec4 ,\
+    inclusions      \cf3 \strokec3 NVARCHAR\cf4 \strokec4 (MAX) \cf3 \strokec3 NULL\cf4 \strokec4 ,\
+    exclusions      \cf3 \strokec3 NVARCHAR\cf4 \strokec4 (MAX) \cf3 \strokec3 NULL\cf4 \strokec4 ,\
+    content_hash    \cf3 \strokec3 BINARY\cf4 \strokec4 (\cf6 \strokec6 32\cf4 \strokec4 )   \cf3 \strokec3 NOT NULL\cf4 \strokec4 ,      \cf7 \strokec7 -- SHA2_256 of normalised text\cf4 \strokec4 \
+    change_source   \cf3 \strokec3 VARCHAR\cf4 \strokec4 (\cf6 \strokec6 20\cf4 \strokec4 )  \cf3 \strokec3 NOT NULL\cf4 \strokec4        \cf7 \strokec7 -- validation / upstream / correction\cf4 \strokec4 \
+                    \cf3 \strokec3 CHECK\cf4 \strokec4  (change_source \cf3 \strokec3 IN\cf4 \strokec4  (\cf8 \strokec8 'validation'\cf4 \strokec4 ,\cf8 \strokec8 'upstream'\cf4 \strokec4 ,\cf8 \strokec8 'correction'\cf4 \strokec4 )),\
+    change_id       \cf3 \strokec3 VARCHAR\cf4 \strokec4 (\cf6 \strokec6 20\cf4 \strokec4 )  \cf3 \strokec3 NULL\cf4 \strokec4            \cf7 \strokec7 -- the request that caused it, if ours\cf4 \strokec4 \
+                    \cf3 \strokec3 REFERENCES\cf4 \strokec4  validation.definition_change(change_id),\
+    recorded_by     \cf3 \strokec3 VARCHAR\cf4 \strokec4 (\cf6 \strokec6 20\cf4 \strokec4 )  \cf3 \strokec3 NULL\cf4 \strokec4 ,\
+    recorded_at     \cf3 \strokec3 DATETIME2\cf4 \strokec4 (\cf6 \strokec6 0\cf4 \strokec4 ) \cf3 \strokec3 NOT NULL\cf4 \strokec4  \cf3 \strokec3 DEFAULT\cf4 \strokec4  \cf5 \strokec5 SYSUTCDATETIME\cf4 \strokec4 ()\
+);\
+\
+\cf3 \strokec3 CREATE\cf4 \strokec4  \cf3 \strokec3 UNIQUE INDEX\cf4 \strokec4  \cf5 \strokec5 uq_sdh_current\cf4 \strokec4  \cf3 \strokec3 ON\cf4 \strokec4  validation.skill_definition_history (skill_code)\
+    \cf3 \strokec3 WHERE\cf4 \strokec4  valid_to \cf3 \strokec3 IS\cf4 \strokec4  \cf3 \strokec3 NULL\cf4 \strokec4 ;\
+\cf3 \strokec3 CREATE\cf4 \strokec4  \cf3 \strokec3 INDEX\cf4 \strokec4  \cf5 \strokec5 ix_sdh_asof\cf4 \strokec4  \cf3 \strokec3 ON\cf4 \strokec4  validation.skill_definition_history (skill_code, valid_from, valid_to);\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 \strokec2 One row per 
+\f1\i actual change
+\f0\i0  to one skill. If three skills are reworded, that's three rows, not sixty.\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f3\b\fs26 \cf0 content_hash
+\f2\fs24  is what makes this maintainable.
+\f0\b0  A nightly job hashes the current dimension rows and compares against the open history row. If the hash differs, close the old row and insert a new one. No triggers on a table you don't own, and it catches changes made upstream by someone else, which is the scenario most likely to break your results quietly.\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f4\fs26 \cf0 change_source
+\f0\fs24  matters for the same reason. A definition that changes because another team edited the dimension is a very different event from one you requested, and you want to see it in the report.\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f2\b\fs28 \cf0 2. Release marker with dates\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b0\fs24 \cf0 \
+sql\
+\pard\pardeftab720\partightenfactor0
+\cf7 \strokec7 -- taxonomy_version becomes a marker, not a container\cf4 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf3 \strokec3 ALTER\cf4 \strokec4  \cf3 \strokec3 TABLE\cf4 \strokec4  validation.taxonomy_version \cf3 \strokec3 ADD\cf4 \strokec4  effective_from \cf3 \strokec3 DATETIME2\cf4 \strokec4 (\cf6 \strokec6 0\cf4 \strokec4 ) \cf3 \strokec3 NOT NULL\cf4 \strokec4 ;\
+\cf3 \strokec3 ALTER\cf4 \strokec4  \cf3 \strokec3 TABLE\cf4 \strokec4  validation.taxonomy_version \cf3 \strokec3 ADD\cf4 \strokec4  effective_to   \cf3 \strokec3 DATETIME2\cf4 \strokec4 (\cf6 \strokec6 0\cf4 \strokec4 ) \cf3 \strokec3 NULL\cf4 \strokec4 ;\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f4\fs26 \cf0 \strokec2 TAX-1.1
+\f0\fs24  now means "the state of all definitions from 18 May onward". It holds no definition rows at all.\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f2\b\fs28 \cf0 3. The payload record \'97 the piece I'd insist on\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 This is what actually closes the loop. Whatever the dimension says, record exactly what was handed to the data science team for each run:\
+\pard\pardeftab720\partightenfactor0
+\cf0 \
+sql\
+\pard\pardeftab720\partightenfactor0
+\cf3 \strokec3 CREATE\cf4 \strokec4  \cf3 \strokec3 TABLE\cf4 \strokec4  \cf5 \strokec5 validation\cf4 \strokec4 .definition_package (\
+    package_id    \cf3 \strokec3 VARCHAR\cf4 \strokec4 (\cf6 \strokec6 20\cf4 \strokec4 )  \cf3 \strokec3 PRIMARY KEY\cf4 \strokec4 ,\
+    run_id        \cf3 \strokec3 VARCHAR\cf4 \strokec4 (\cf6 \strokec6 20\cf4 \strokec4 )  \cf3 \strokec3 NULL\cf4 \strokec4  \cf3 \strokec3 REFERENCES\cf4 \strokec4  validation.model_run(run_id),\
+    created_at    \cf3 \strokec3 DATETIME2\cf4 \strokec4 (\cf6 \strokec6 0\cf4 \strokec4 ) \cf3 \strokec3 NOT NULL\cf4 \strokec4 ,\
+    skill_count   \cf3 \strokec3 INT\cf4 \strokec4           \cf3 \strokec3 NOT NULL\cf4 \strokec4 ,\
+    payload_hash  \cf3 \strokec3 BINARY\cf4 \strokec4 (\cf6 \strokec6 32\cf4 \strokec4 )   \cf3 \strokec3 NOT NULL\cf4 \strokec4 ,        \cf7 \strokec7 -- hash of the whole package\cf4 \strokec4 \
+    payload       \cf3 \strokec3 NVARCHAR\cf4 \strokec4 (MAX) \cf3 \strokec3 NULL\cf4 \strokec4 ,           \cf7 \strokec7 -- the JSON actually sent\cf4 \strokec4 \
+    sent_to       \cf3 \strokec3 NVARCHAR\cf4 \strokec4 (\cf6 \strokec6 120\cf4 \strokec4 ) \cf3 \strokec3 NULL\cf4 \strokec4 \
+);\
+\
+\cf3 \strokec3 CREATE\cf4 \strokec4  \cf3 \strokec3 TABLE\cf4 \strokec4  \cf5 \strokec5 validation\cf4 \strokec4 .definition_package_line (\
+    package_id   \cf3 \strokec3 VARCHAR\cf4 \strokec4 (\cf6 \strokec6 20\cf4 \strokec4 ) \cf3 \strokec3 NOT NULL\cf4 \strokec4  \cf3 \strokec3 REFERENCES\cf4 \strokec4  validation.definition_package(package_id),\
+    skill_code   \cf3 \strokec3 VARCHAR\cf4 \strokec4 (\cf6 \strokec6 20\cf4 \strokec4 ) \cf3 \strokec3 NOT NULL\cf4 \strokec4  \cf3 \strokec3 REFERENCES\cf4 \strokec4  validation.skill(skill_code),\
+    history_id   \cf3 \strokec3 BIGINT\cf4 \strokec4       \cf3 \strokec3 NOT NULL\cf4 \strokec4  \cf3 \strokec3 REFERENCES\cf4 \strokec4  validation.skill_definition_history(history_id),\
+    \cf3 \strokec3 PRIMARY KEY\cf4 \strokec4  (package_id, skill_code)\
+);\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 \strokec2 The package lines are pointers into the history, so you store the wording once but can always reconstruct the exact text any run saw. If someone asks "did the model actually get the new firmware definition?", that's one join, not an archaeology exercise.\
+It also catches the failure mode where definitions were updated in the dimension but the extract to data science ran before the update. Without the package record, that looks like a model failure.\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f2\b\fs28 \cf0 The lineage chain\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 That gives you an unbroken path in both directions:\
+\pard\pardeftab720\partightenfactor0
+\cf0 \
+\pard\pardeftab720\partightenfactor0
+\cf4 \strokec4 review_verdict (SME said definition gap)\
+    
+\f5 \uc0\u8594 
+\f0  definition_change (reword request, approved)\
+        
+\f5 \uc0\u8594 
+\f0  skill_definition_history (the new wording, valid_from)\
+            
+\f5 \uc0\u8594 
+\f0  definition_package_line\
+                
+\f5 \uc0\u8594 
+\f0  definition_package 
+\f5 \uc0\u8594 
+\f0  model_run\
+                    
+\f5 \uc0\u8594 
+\f0  model_output (what the model produced with it)\
+                        
+\f5 \uc0\u8594 
+\f0  auto_assessment 
+\f5 \uc0\u8594 
+\f0  review_verdict (next cycle)\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 \strokec2 So you can ask either "which cases led to this wording change?" or "did accuracy on this skill improve after the change?" and both are answerable with joins rather than judgement.\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f2\b\fs28 \cf0 Resolving the definition in force\
+\pard\pardeftab720\partightenfactor0
+
+\f0\b0\fs24 \cf0 \
+sql\
+\pard\pardeftab720\partightenfactor0
+\cf7 \strokec7 -- What a model saw for a run (preferred: from the package)\cf4 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf3 \strokec3 SELECT\cf4 \strokec4  h.skill_code, h.definition_text, h.inclusions, h.exclusions\
+\cf3 \strokec3 FROM\cf4 \strokec4  validation.definition_package      p\
+\cf3 \strokec3 JOIN\cf4 \strokec4  validation.definition_package_line l \cf3 \strokec3 ON\cf4 \strokec4  l.package_id = p.package_id\
+\cf3 \strokec3 JOIN\cf4 \strokec4  validation.skill_definition_history h \cf3 \strokec3 ON\cf4 \strokec4  h.history_id = l.history_id\
+\cf3 \strokec3 WHERE\cf4 \strokec4  p.run_id = @run_id;\
+\
+\pard\pardeftab720\partightenfactor0
+\cf7 \strokec7 -- Fallback where no package exists (historic runs): as-of resolution\cf4 \strokec4 \
+\pard\pardeftab720\partightenfactor0
+\cf3 \strokec3 SELECT\cf4 \strokec4  h.skill_code, h.definition_text\
+\cf3 \strokec3 FROM\cf4 \strokec4  validation.model_run r\
+\cf3 \strokec3 JOIN\cf4 \strokec4  validation.skill_definition_history h\
+     \cf3 \strokec3 ON\cf4 \strokec4  r.run_date >= h.valid_from\
+    \cf3 \strokec3 AND\cf4 \strokec4  (h.valid_to \cf3 \strokec3 IS\cf4 \strokec4  \cf3 \strokec3 NULL\cf4 \strokec4  \cf3 \strokec3 OR\cf4 \strokec4  r.run_date < h.valid_to)\
+\cf3 \strokec3 WHERE\cf4 \strokec4  r.run_id = @run_id;\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf0 \strokec2 Wrap the first in a view, say 
+\f4\fs26 v_run_definitions
+\f0\fs24 , so the form and reporting both use one definition of "the wording for this run" rather than each re-deriving it.\
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f2\b\fs28 \cf0 What this changes elsewhere\
+
+\itap1\trowd \taflags0 \trgaph108\trleft-108 \trbrdrt\brdrnil \trbrdrl\brdrnil \trbrdrr\brdrnil 
+\clvertalc \clshdrawnil \clwWidth4056\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx4320
+\clvertalc \clshdrawnil \clwWidth11423\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\qc\partightenfactor0
+
+\fs24 \cf0 Where\cell 
+\pard\intbl\itap1\pardeftab720\qc\partightenfactor0
+\cf0 Change\cell \row
+
+\itap1\trowd \taflags0 \trgaph108\trleft-108 \trbrdrl\brdrnil \trbrdrr\brdrnil 
+\clvertalc \clshdrawnil \clwWidth4056\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx4320
+\clvertalc \clshdrawnil \clwWidth11423\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+
+\f4\b0\fs26 \cf0 skill_definition
+\f0\fs24 \cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 Drop the table. The upstream dimension plus the history table replace it.\cell \row
+
+\itap1\trowd \taflags0 \trgaph108\trleft-108 \trbrdrl\brdrnil \trbrdrr\brdrnil 
+\clvertalc \clshdrawnil \clwWidth4056\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx4320
+\clvertalc \clshdrawnil \clwWidth11423\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+
+\f4\fs26 \cf0 model_run.taxonomy_version
+\f0\fs24 \cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 Keep it as a human-readable label, but resolution happens via 
+\f4\fs26 definition_package
+\f0\fs24 .\cell \row
+
+\itap1\trowd \taflags0 \trgaph108\trleft-108 \trbrdrl\brdrnil \trbrdrr\brdrnil 
+\clvertalc \clshdrawnil \clwWidth4056\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx4320
+\clvertalc \clshdrawnil \clwWidth11423\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 Form spec\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 "Filter 
+\f4\fs26 skill_definition
+\f0\fs24  on the run's taxonomy version" becomes "read 
+\f4\fs26 v_run_definitions
+\f0\fs24  for the queue row's 
+\f4\fs26 run_id
+\f0\fs24 ".\cell \row
+
+\itap1\trowd \taflags0 \trgaph108\trleft-108 \trbrdrl\brdrnil \trbrdrt\brdrnil \trbrdrr\brdrnil 
+\clvertalc \clshdrawnil \clwWidth4056\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx4320
+\clvertalc \clshdrawnil \clwWidth11423\clftsWidth3 \clmart10 \clmarl10 \clmarb10 \clmarr10 \clbrdrt\brdrnil \clbrdrl\brdrnil \clbrdrb\brdrnil \clbrdrr\brdrnil \clpadt20 \clpadl20 \clpadb20 \clpadr20 \gaph\cellx8640
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 Data load checklist\cell 
+\pard\intbl\itap1\pardeftab720\partightenfactor0
+\cf0 Step 2 no longer loads definitions per version. It seeds the history table with the opening state of each skill.\cell \lastrow\row
+\pard\pardeftab720\sa280\partightenfactor0
+
+\f2\b\fs28 \cf0 The trade-off, stated plainly\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f0\b0\fs24 \cf0 As-of resolution is slightly harder to query than a snapshot, and a careless join can return two rows for one skill if 
+\f4\fs26 valid_from
+\f0\fs24  and 
+\f4\fs26 valid_to
+\f0\fs24  ever overlap. The filtered unique index on open rows prevents the common version of that bug, and routing all reads through the view prevents the rest.\
+In exchange you stop duplicating a dimension you don't own, you capture changes made by other teams, and you get a verifiable record of exactly what each model run was given. For an exercise whose whole purpose is to measure whether definition changes improved accuracy, that last point is worth the extra join.\
+}
